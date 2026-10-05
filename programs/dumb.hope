@@ -1,0 +1,25 @@
+program dumb
+
+// Always warm, never saves: the baseline the smart programs are compared with.
+event Sensors()
+
+var heater of bool = true
+
+on Sensors()
+    var t_in of real = sense("t_in")
+    if t_in < 25.0
+        heater = true
+    elif t_in > 27.0
+        heater = false
+    end
+    act("target_c", 26.0)
+    if heater
+        act("heater_on", 1.0)
+    else
+        act("heater_on", 0.0)
+    end
+    act("appliances_on", 1.0)
+    act("valve_open", 1.0)
+    act_text("program", "dumb")
+    act_text("reason", "always warm, never saves")
+end

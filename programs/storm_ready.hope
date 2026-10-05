@@ -1,0 +1,53 @@
+program storm_ready
+
+// Banks heat at 23.5 C when a storm comes, saves hard on the UPS.
+event Sensors()
+
+var heater of bool = true
+
+def thermostat(t_in of real, target of real, band of real) of bool
+    if t_in < target - band
+        heater = true
+    elif t_in > target + band
+        heater = false
+    end
+    return heater
+end
+
+def flag(enabled of bool) of real
+    if enabled
+        return 1.0
+    end
+    return 0.0
+end
+
+on Sensors()
+    var limit of real = sense("limit_w")
+    var on_ups of bool = sense("on_ups") > 0.5
+    var target of real = 21.0
+    var reason of string = "comfort 21"
+    var offline of bool = sense("net_online") < 0.5
+    if sense("storm") > 0.5 or sense("wind") > 20.0
+        target = 23.5
+        reason = "storm, banking heat"
+        if offline
+            reason = "storm, banking heat (offline, last forecast)"
+        end
+    elif offline
+        reason = "comfort 21 (offline, last forecast)"
+    end
+    if on_ups
+        target = 12.0
+        reason = "on ups, minimum"
+    end
+    if limit > 0.0 and limit <= 1800.0
+        target = 6.0
+        reason = "grid limit, antifreeze"
+    end
+    act("target_c", target)
+    act("heater_on", flag(thermostat(sense("t_in"), target, 0.5)))
+    act("appliances_on", flag(not (on_ups or limit > 0.0)))
+    act("valve_open", sense("pipes_ok"))
+    act_text("program", "storm-ready")
+    act_text("reason", reason)
+end

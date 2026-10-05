@@ -1,0 +1,43 @@
+program comfort
+
+// Keeps 21 C. Under a grid limit it drops to eco, under a hard limit to antifreeze.
+event Sensors()
+
+var heater of bool = true
+
+def thermostat(t_in of real, target of real, band of real) of bool
+    if t_in < target - band
+        heater = true
+    elif t_in > target + band
+        heater = false
+    end
+    return heater
+end
+
+def flag(enabled of bool) of real
+    if enabled
+        return 1.0
+    end
+    return 0.0
+end
+
+on Sensors()
+    var limit of real = sense("limit_w")
+    var on_ups of bool = sense("on_ups") > 0.5
+    var target of real = 21.0
+    var reason of string = "comfort 21"
+    var hard_limit of bool = limit > 0.0 and limit <= 1800.0
+    if hard_limit
+        target = 6.0
+        reason = "grid limit, antifreeze"
+    elif limit > 0.0 or on_ups
+        target = 16.0
+        reason = "limited power, eco"
+    end
+    act("target_c", target)
+    act("heater_on", flag(thermostat(sense("t_in"), target, 0.5)))
+    act("appliances_on", flag(not (on_ups or hard_limit)))
+    act("valve_open", sense("pipes_ok"))
+    act_text("program", "comfort")
+    act_text("reason", reason)
+end

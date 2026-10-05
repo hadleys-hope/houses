@@ -1,0 +1,46 @@
+program eco
+
+// 18 C by day, 15 C at night, two degrees less while the grid sheds load.
+event Sensors()
+
+var heater of bool = true
+
+def thermostat(t_in of real, target of real, band of real) of bool
+    if t_in < target - band
+        heater = true
+    elif t_in > target + band
+        heater = false
+    end
+    return heater
+end
+
+def flag(enabled of bool) of real
+    if enabled
+        return 1.0
+    end
+    return 0.0
+end
+
+on Sensors()
+    var limit of real = sense("limit_w")
+    var target of real = 18.0
+    var reason of string = "eco day 18"
+    if sense("night") > 0.5
+        target = 15.0
+        reason = "eco night 15"
+    end
+    if sense("shedding") >= 3.0
+        target = target - 2.0
+        reason = "shedding, minus 2"
+    end
+    if limit > 0.0 and limit <= 1800.0
+        target = 6.0
+        reason = "grid limit, antifreeze"
+    end
+    act("target_c", target)
+    act("heater_on", flag(thermostat(sense("t_in"), target, 0.7)))
+    act("appliances_on", flag(sense("on_ups") < 0.5))
+    act("valve_open", sense("pipes_ok"))
+    act_text("program", "eco")
+    act_text("reason", reason)
+end

@@ -1,0 +1,50 @@
+program night_setback
+
+// 21 C by day, 16 C from 22:00 to 06:00, warm-up from 05:00.
+event Sensors()
+
+var heater of bool = true
+
+def thermostat(t_in of real, target of real, band of real) of bool
+    if t_in < target - band
+        heater = true
+    elif t_in > target + band
+        heater = false
+    end
+    return heater
+end
+
+def flag(enabled of bool) of real
+    if enabled
+        return 1.0
+    end
+    return 0.0
+end
+
+on Sensors()
+    var h of real = sense("hour")
+    var limit of real = sense("limit_w")
+    var on_ups of bool = sense("on_ups") > 0.5
+    var target of real = 21.0
+    var reason of string = "day 21"
+    if h >= 5.0 and h < 6.0
+        reason = "warm-up before morning"
+    elif h >= 22.0 or h < 6.0
+        target = 16.0
+        reason = "night setback 16"
+    end
+    if on_ups
+        target = 14.0
+        reason = "on ups, stretch the battery"
+    end
+    if limit > 0.0 and limit <= 1800.0
+        target = 6.0
+        reason = "grid limit, antifreeze"
+    end
+    act("target_c", target)
+    act("heater_on", flag(thermostat(sense("t_in"), target, 0.5)))
+    act("appliances_on", flag(not on_ups))
+    act("valve_open", sense("pipes_ok"))
+    act_text("program", "night-setback")
+    act_text("reason", reason)
+end
